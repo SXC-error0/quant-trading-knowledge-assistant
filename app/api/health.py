@@ -10,5 +10,7 @@ async def health(request: Request) -> dict[str, str | bool]:
         "status": "ok",
         "service": settings.app_name,
         "environment": settings.app_env,
+        "embedding_configuration_ready": settings.embedding_configuration_ready(),
+        "llm_configuration_ready": settings.llm_configuration_ready(),
         "model_configuration_ready": settings.model_configuration_ready(),
     }
