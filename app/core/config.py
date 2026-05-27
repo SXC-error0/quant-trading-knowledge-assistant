@@ -32,15 +32,18 @@ class Settings(BaseSettings):
     retrieval_candidate_k: int = Field(default=20, ge=1, le=100)
     retrieval_default_top_k: int = Field(default=5, ge=1, le=20)
 
+    @staticmethod
+    def _configured(key: str, model: str) -> bool:
+        return "replace_with" not in key and not model.startswith("your-")
+
+    def embedding_configuration_ready(self) -> bool:
+        return self._configured(self.embedding_api_key, self.embedding_model)
+
+    def llm_configuration_ready(self) -> bool:
+        return self._configured(self.llm_api_key, self.llm_model)
+
     def model_configuration_ready(self) -> bool:
-        """Return whether non-placeholder model configuration is present."""
-        values = (
-            self.embedding_api_key,
-            self.embedding_model,
-            self.llm_api_key,
-            self.llm_model,
-        )
-        return not any("replace_with" in value or value.startswith("your-") for value in values)
+        return self.embedding_configuration_ready() and self.llm_configuration_ready()
 
 
 @lru_cache
