@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
     retrieval = RetrievalService(settings, embeddings, vector_store)
 
     app.state.settings = settings
-    app.state.ingestion_service = IngestionService(embeddings, vector_store)
+    app.state.ingestion_service = IngestionService(embeddings, vector_store, settings)
     app.state.answer_service = AnswerService(retrieval, llm)
     yield
 

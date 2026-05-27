@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     retrieval_candidate_k: int = Field(default=20, ge=1, le=100)
     retrieval_default_top_k: int = Field(default=5, ge=1, le=20)
 
+    ingestion_batch_size: int = Field(default=50, ge=1, le=500)
+
     @staticmethod
     def _configured(key: str, model: str) -> bool:
         return "replace_with" not in key and not model.startswith("your-")

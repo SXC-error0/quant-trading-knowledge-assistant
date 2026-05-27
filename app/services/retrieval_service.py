@@ -1,19 +1,24 @@
 import re
 
+from rank_bm25 import BM25Okapi
+
 from app.core.config import Settings
 from app.models.knowledge import KnowledgeChunk
 from app.services.embedding_service import EmbeddingService
 from app.services.vector_store import VectorStore
 
+_VECTOR_WEIGHT = 0.7
+_BM25_WEIGHT = 0.3
 
-def _terms(text: str) -> set[str]:
+
+def _tokenize(text: str) -> list[str]:
     ascii_terms = re.findall(r"[a-zA-Z][a-zA-Z0-9_-]+", text.lower())
     chinese_terms = re.findall(r"[\u4e00-\u9fff]{2,}", text)
-    return set(ascii_terms + chinese_terms)
+    return ascii_terms + chinese_terms
 
 
 class RetrievalService:
-    """Vector recall with a lightweight keyword bonus; replace with a reranker later."""
+    """Hybrid retrieval: vector recall + BM25 re-rank over candidates."""
 
     def __init__(
         self,
@@ -37,12 +42,25 @@ class RetrievalService:
             domains,
             max(top_k, self._settings.retrieval_candidate_k),
         )
-        question_terms = _terms(question)
-        rescored: list[tuple[KnowledgeChunk, float]] = []
-        for chunk, vector_score in candidates:
-            searchable = " ".join(
-                [chunk.content, *chunk.keywords, chunk.chapter or "", chunk.section or ""]
+        if not candidates:
+            return []
+
+        chunks = [chunk for chunk, _ in candidates]
+        vector_scores = {chunk.chunk_id: score for chunk, score in candidates}
+
+        corpus = [
+            _tokenize(
+                " ".join([c.content, *c.keywords, c.chapter or "", c.section or ""])
             )
-            overlaps = len(question_terms.intersection(_terms(searchable)))
-            rescored.append((chunk, vector_score + min(overlaps * 0.03, 0.15)))
+            for c in chunks
+        ]
+        bm25 = BM25Okapi(corpus)
+        raw_bm25 = bm25.get_scores(_tokenize(question))
+        max_bm25 = float(raw_bm25.max())
+        normalized_bm25 = raw_bm25 / max_bm25 if max_bm25 > 0 else raw_bm25
+
+        rescored: list[tuple[KnowledgeChunk, float]] = [
+            (chunk, _VECTOR_WEIGHT * vector_scores[chunk.chunk_id] + _BM25_WEIGHT * float(normalized_bm25[i]))
+            for i, chunk in enumerate(chunks)
+        ]
         return sorted(rescored, key=lambda item: item[1], reverse=True)[:top_k]

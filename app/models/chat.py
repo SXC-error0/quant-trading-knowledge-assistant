@@ -1,12 +1,24 @@
 from pydantic import BaseModel, Field
 
 from app.models.knowledge import KnowledgeDomain
+from app.models.signal import SignalContext
+
+
+class ConversationTurn(BaseModel):
+    role: str = Field(pattern="^(user|assistant)$")
+    content: str = Field(min_length=1, max_length=4000)
 
 
 class AskRequest(BaseModel):
     question: str = Field(min_length=2, max_length=2000)
     knowledge_domains: list[KnowledgeDomain] | None = None
     top_k: int = Field(default=5, ge=1, le=10)
+    signal_context: SignalContext | None = None
+    history: list[ConversationTurn] = Field(
+        default_factory=list,
+        max_length=10,
+        description="Up to 10 prior turns for multi-turn context.",
+    )
 
 
 class SourceReference(BaseModel):

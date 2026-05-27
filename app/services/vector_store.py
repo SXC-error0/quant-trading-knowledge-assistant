@@ -13,8 +13,11 @@ class VectorStore:
             url=settings.qdrant_url,
             api_key=settings.qdrant_api_key or None,
         )
+        self._initialized = False
 
     async def ensure_collection(self) -> None:
+        if self._initialized:
+            return
         exists = await self._client.collection_exists(self._settings.qdrant_collection)
         if not exists:
             await self._client.create_collection(
@@ -24,6 +27,7 @@ class VectorStore:
                     distance=models.Distance.COSINE,
                 ),
             )
+        self._initialized = True
 
     async def upsert(self, chunks: list[KnowledgeChunk], vectors: list[list[float]]) -> int:
         await self.ensure_collection()
